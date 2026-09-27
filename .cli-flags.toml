@@ -1,0 +1,37 @@
+[help]
+url = "https://github.com/gha-indie-worker/giw-desktop-cli"
+columns = ["options", "env", "type", "default", "description"]
+
+[parse]
+stop_at_first_positional = false
+allow_unknown = false
+
+[env]
+ignore = ["GIW_DESKTOP_TOKEN_FILE"]
+
+[commands.status]
+help = "Show IndieBuild local status including the delegated Scintilla runtime."
+
+[commands.dispatch]
+help = "Dispatch one local IndieBuild job through the IndieBuild daemon into Scintilla."
+
+[commands.dispatch.flags.payload]
+env = "GIW_DESKTOP_PAYLOAD"
+aliases = ["payload"]
+type = "json"
+default = "{}"
+help = "JSON job payload."
+
+[flags.url]
+env = "GIW_DESKTOP_DAEMON_URL"
+aliases = ["url"]
+type = "string"
+default = "http://127.0.0.1:8756"
+help = "Loopback URL of giw-desktop-daemon."
+
+[flags.timeout]
+env = "GIW_DESKTOP_TIMEOUT_MS"
+aliases = ["timeout"]
+type = "integer"
+default = 30000
+help = "Request timeout in milliseconds."
