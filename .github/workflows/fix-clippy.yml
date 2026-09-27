@@ -1,0 +1,37 @@
+name: Apply targeted CLI clippy fixes
+
+on:
+  push:
+    branches:
+      - feat/desktop-control-plane
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: feat/desktop-control-plane
+          persist-credentials: true
+      - name: Apply focused fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          perl -0pi -e 's/use reqwest::\{Client, Method, StatusCode\};/use reqwest::{Client, Method};/' src/main.rs
+          perl -0pi -e 's/if let Some\(version\) = value\.get\("protocol_version"\)\.and_then\(Value::as_u64\) \{\n        if version > PROTOCOL_VERSION \{\n            bail!\(\n                "daemon protocol version \{version\} is newer than this CLI supports \(\{PROTOCOL_VERSION\}\); update giw-desktop-cli"\n            \);\n        \}\n    \}/if let Some(version) = value.get("protocol_version").and_then(Value::as_u64)\n        \&\& version > PROTOCOL_VERSION\n    {\n        bail!(\n            "daemon protocol version {version} is newer than this CLI supports ({PROTOCOL_VERSION}); update giw-desktop-cli"\n        );\n    }/' src/main.rs
+          cargo fmt --all
+          git diff --check
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main.rs
+          git commit -m 'fix: address CLI clippy findings'
+          git push origin HEAD:feat/desktop-control-plane
