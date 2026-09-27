@@ -11,7 +11,10 @@ const PROTOCOL_VERSION: u64 = 1;
 const DEFAULT_DAEMON_URL: &str = "http://127.0.0.1:18440";
 
 #[derive(Debug, Parser)]
-#[command(name = "giw-desktop", about = "Control the local IndieBuild desktop daemon")]
+#[command(
+    name = "giw-desktop",
+    about = "Control the local IndieBuild desktop daemon"
+)]
 struct Args {
     #[arg(long, default_value = DEFAULT_DAEMON_URL, env = "GIW_DESKTOP_URL")]
     daemon_url: String,
@@ -111,7 +114,10 @@ async fn request(
         .await
         .with_context(|| format!("failed to call GIW desktop daemon at {url}"))?;
     let status = response.status();
-    let text = response.text().await.context("failed to read daemon response")?;
+    let text = response
+        .text()
+        .await
+        .context("failed to read daemon response")?;
     let value: Value = serde_json::from_str(&text)
         .with_context(|| format!("daemon returned non-JSON response ({status}): {text}"))?;
 
@@ -135,12 +141,17 @@ async fn run(args: Args) -> Result<Value> {
         && !args.daemon_url.starts_with("http://localhost:")
         && !args.daemon_url.starts_with("http://[::1]:")
     {
-        bail!("--daemon-url must target loopback HTTP; got {:?}", args.daemon_url);
+        bail!(
+            "--daemon-url must target loopback HTTP; got {:?}",
+            args.daemon_url
+        );
     }
 
     let token_file = token_path(args.token_file)?;
     let token = read_token(&token_file)?;
-    let client = Client::builder().build().context("failed to construct HTTP client")?;
+    let client = Client::builder()
+        .build()
+        .context("failed to construct HTTP client")?;
 
     let (method, path, body) = match args.command {
         Command::Status => (Method::GET, "/v1/status".to_string(), None),
@@ -175,7 +186,14 @@ async fn run(args: Args) -> Result<Value> {
         Command::Update => (Method::POST, "/v1/updates/apply".to_string(), None),
     };
 
-    return request(&client, &token, method, endpoint(&args.daemon_url, &path), body).await;
+    return request(
+        &client,
+        &token,
+        method,
+        endpoint(&args.daemon_url, &path),
+        body,
+    )
+    .await;
 }
 
 #[tokio::main]
