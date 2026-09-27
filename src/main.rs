@@ -31,10 +31,14 @@ async fn run() -> Result<()> {
         .to_str()
         .ok_or_else(|| anyhow!(".cli-flags.toml path is not UTF-8"))?;
     let parser = BundledFlags2Env::new();
-    parser.audit_config(Some(config_path_text))?;
+    parser
+        .audit_config(Some(config_path_text))
+        .map_err(|error| anyhow!("flags-2-env configuration audit failed: {error}"))?;
 
     let argv = env::args().collect::<Vec<_>>();
-    let parsed = parser.parse_structured(&argv, Some(config_path_text))?;
+    let parsed = parser
+        .parse_structured(&argv, Some(config_path_text))
+        .map_err(|error| anyhow!("flags-2-env parse failed: {error}"))?;
     if !parsed.unknown_options.is_empty() {
         bail!("unknown command-line options: {}", parsed.unknown_options.len());
     }
@@ -48,7 +52,9 @@ async fn run() -> Result<()> {
     let mut raw = env::vars().collect::<HashMap<_, _>>();
     raw.remove("FLAGS2ENV_COMMAND");
     raw.extend(parsed.provided_flags);
-    let config = parser.coerce::<CliConfig, _>(&raw, Some(config_path_text))?;
+    let config = parser
+        .coerce::<CliConfig, _>(&raw, Some(config_path_text))
+        .map_err(|error| anyhow!("flags-2-env typed configuration failed: {error}"))?;
     let timeout_ms = u64::try_from(config.GIW_DESKTOP_TIMEOUT_MS)
         .ok()
         .filter(|value| *value > 0 && *value <= 1_200_000)
