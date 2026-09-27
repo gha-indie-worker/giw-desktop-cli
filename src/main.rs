@@ -4,7 +4,7 @@ use std::{env, fs, path::PathBuf};
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand, ValueEnum};
-use reqwest::{Client, Method, StatusCode};
+use reqwest::{Client, Method};
 use serde_json::{Value, json};
 
 const PROTOCOL_VERSION: u64 = 1;
@@ -125,12 +125,12 @@ async fn request(
         bail!("daemon request failed with {status}: {value}");
     }
 
-    if let Some(version) = value.get("protocol_version").and_then(Value::as_u64) {
-        if version > PROTOCOL_VERSION {
-            bail!(
-                "daemon protocol version {version} is newer than this CLI supports ({PROTOCOL_VERSION}); update giw-desktop-cli"
-            );
-        }
+    if let Some(version) = value.get("protocol_version").and_then(Value::as_u64)
+        && version > PROTOCOL_VERSION
+    {
+        bail!(
+            "daemon protocol version {version} is newer than this CLI supports ({PROTOCOL_VERSION}); update giw-desktop-cli"
+        );
     }
 
     return Ok(value);
