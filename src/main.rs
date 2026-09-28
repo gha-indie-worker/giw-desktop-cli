@@ -4,11 +4,12 @@ use std::{
     collections::HashMap,
     env, fs,
     io::Write,
+    net::IpAddr,
     path::{Path, PathBuf},
     time::Duration,
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use flags2env::BundledFlags2Env;
 use reqwest::{Client, Method, StatusCode, Url};
 use serde::Deserialize;
@@ -137,7 +138,7 @@ fn coerce_flag_values(
     values.extend(provided_flags.clone());
     return parser
         .coerce(&values, Some(contract))
-        .context("invalid typed GIW desktop flag/environment value");
+        .map_err(|error| anyhow!("invalid typed GIW desktop flag/environment value: {error}"));
 }
 
 fn reject_extras(command: &str, extras: &[String]) -> Result<()> {
@@ -182,10 +183,10 @@ fn parse_args_from(argv: Vec<String>) -> Result<Args> {
 
     parser
         .audit_config(Some(&contract))
-        .context("GIW desktop flag contract audit failed")?;
+        .map_err(|error| anyhow!("GIW desktop flag contract audit failed: {error}"))?;
     let structured = parser
         .parse_structured(&argv, Some(&contract))
-        .context("GIW desktop flag parsing failed")?;
+        .map_err(|error| anyhow!("GIW desktop flag parsing failed: {error}"))?;
 
     if !structured.unknown_options.is_empty() {
         bail!(
@@ -199,7 +200,7 @@ fn parse_args_from(argv: Vec<String>) -> Result<Args> {
 
     let resolved_commands = parser
         .resolve_commands(&argv, Some(&contract))
-        .context("GIW desktop command resolution failed")?;
+        .map_err(|error| anyhow!("GIW desktop command resolution failed: {error}"))?;
     let values = coerce_flag_values(
         &parser,
         &structured.dotenv,
@@ -299,6 +300,20 @@ fn parse_args() -> Result<Args> {
     return parse_args_from(env::args().collect());
 }
 
+fn parse_literal_loopback_host(host: &str) -> Result<IpAddr> {
+    let normalized = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
+    let ip = normalized
+        .parse::<IpAddr>()
+        .context("GIW desktop daemon URL host must be a literal IP address")?;
+    if !ip.is_loopback() {
+        bail!("GIW desktop daemon URL must use literal loopback 127.0.0.1 or ::1");
+    }
+    return Ok(ip);
+}
+
 fn parse_daemon_base(raw: &str) -> Result<Url> {
     let url = Url::parse(raw).with_context(|| format!("invalid GIW desktop daemon URL {raw:?}"))?;
 
@@ -308,9 +323,10 @@ fn parse_daemon_base(raw: &str) -> Result<Url> {
     if !url.username().is_empty() || url.password().is_some() {
         bail!("GIW desktop daemon URL must not contain URL credentials");
     }
-    if !matches!(url.host_str(), Some("127.0.0.1" | "::1")) {
-        bail!("GIW desktop daemon URL must use literal loopback 127.0.0.1 or ::1");
-    }
+    let host = url
+        .host_str()
+        .ok_or_else(|| anyhow!("GIW desktop daemon URL must include a host"))?;
+    let _ = parse_literal_loopback_host(host)?;
     if url.port().is_none() {
         bail!("GIW desktop daemon URL must include an explicit port");
     }
