@@ -40,6 +40,12 @@ with `--token-file` or `GIW_DESKTOP_TOKEN_FILE`.
 There is intentionally no `--token` option: bearer tokens should not appear in shell history or the
 process list.
 
+## Reproducible executable build
+
+`Cargo.lock` is committed for this executable crate. CI regenerates the dependency graph, then runs
+Clippy and tests with `--locked` and fails if the reviewed lockfile drifts. Dependency changes therefore
+require an intentional lockfile update on the source branch.
+
 ## Contract
 
 The CLI currently supports desktop protocol version 1. When a daemon reports a newer incompatible
