@@ -17,7 +17,8 @@ const EXPECTED_LIFECYCLE: [&str; 8] = [
 fn generation_contract_matches_current_shared_authority() {
     let raw = fs::read_to_string("ores-generation-contract.json")
         .expect("generation contract must be readable");
-    let contract: Value = serde_json::from_str(&raw).expect("generation contract must be valid JSON");
+    let contract: Value =
+        serde_json::from_str(&raw).expect("generation contract must be valid JSON");
 
     assert_eq!(
         contract["schema"].as_str(),
