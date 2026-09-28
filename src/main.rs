@@ -36,16 +36,9 @@ enum Command {
     Status,
     Reconcile,
     Processes,
-    Process {
-        action: ProcessAction,
-        name: String,
-    },
-    Tunnel {
-        action: TunnelAction,
-    },
-    KeepAwake {
-        state: Toggle,
-    },
+    Process { action: ProcessAction, name: String },
+    Tunnel { action: TunnelAction },
+    KeepAwake { state: Toggle },
     Update,
 }
 
@@ -125,10 +118,7 @@ fn read_token(path: &Path) -> Result<String> {
     }
 
     let token = raw.strip_suffix('\n').unwrap_or(&raw);
-    if token.len() < 32
-        || token.len() > MAX_TOKEN_BYTES
-        || token.chars().any(char::is_whitespace)
-    {
+    if token.len() < 32 || token.len() > MAX_TOKEN_BYTES || token.chars().any(char::is_whitespace) {
         bail!("daemon token at {} is malformed", path.display());
     }
     return Ok(token.to_string());
@@ -526,9 +516,7 @@ mod tests {
     fn endpoint_join_is_stable() {
         let base = parse_daemon_base("http://127.0.0.1:18440").expect("loopback base");
         assert_eq!(
-            endpoint(&base, "/v1/status")
-                .expect("endpoint")
-                .as_str(),
+            endpoint(&base, "/v1/status").expect("endpoint").as_str(),
             "http://127.0.0.1:18440/v1/status"
         );
     }
