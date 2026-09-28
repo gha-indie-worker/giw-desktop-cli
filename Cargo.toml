@@ -9,10 +9,11 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1"
-clap = { version = "4", features = ["derive", "env"] }
+flags2env = { package = "flags2env", git = "https://github.com/flags-2-env/flags-2-env.git", rev = "3414281ed8d7339d5bfabf951048bff31aa3349e" }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [lints.clippy]
