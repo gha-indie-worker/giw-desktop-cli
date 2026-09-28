@@ -26,6 +26,14 @@ jobs:
           components: rustfmt,clippy
       - name: Format
         run: cargo +1.90.0 fmt --all -- --check
+      - name: Generate deterministic lock candidate
+        run: cargo +1.90.0 generate-lockfile
+      - name: Preserve lock candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: cargo-lock-candidate
+          path: Cargo.lock
+          if-no-files-found: error
       - name: Clippy
         run: cargo +1.90.0 clippy --locked --all-targets -- -D warnings
       - name: Test
@@ -33,5 +41,5 @@ jobs:
       - name: Require committed deterministic lockfile
         shell: bash
         run: |
-          test -f Cargo.lock
+          git ls-files --error-unmatch Cargo.lock
           git diff --exit-code -- Cargo.lock
