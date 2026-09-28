@@ -128,8 +128,7 @@ fn read_token() -> Result<String> {
     let path = if let Some(path) = env::var_os("GIW_DESKTOP_TOKEN_FILE") {
         PathBuf::from(path)
     } else {
-        let home = env::var_os("HOME").ok_or_else(|| anyhow!("HOME is required"))?;
-        PathBuf::from(home).join(".indiebuild/daemon/token")
+        home_dir()?.join(".indiebuild/daemon/token")
     };
     let token = std::fs::read_to_string(&path)
         .with_context(|| format!("cannot read daemon token at {}", path.display()))?;
@@ -138,4 +137,21 @@ fn read_token() -> Result<String> {
         bail!("daemon token is invalid");
     }
     return Ok(token.to_owned());
+}
+
+fn home_dir() -> Result<PathBuf> {
+    if let Some(home) = env::var_os("HOME").filter(|value| !value.is_empty()) {
+        return Ok(PathBuf::from(home));
+    }
+    if let Some(profile) = env::var_os("USERPROFILE").filter(|value| !value.is_empty()) {
+        return Ok(PathBuf::from(profile));
+    }
+    let drive = env::var_os("HOMEDRIVE").filter(|value| !value.is_empty());
+    let path = env::var_os("HOMEPATH").filter(|value| !value.is_empty());
+    if let (Some(drive), Some(path)) = (drive, path) {
+        let mut value = PathBuf::from(drive);
+        value.push(path);
+        return Ok(value);
+    }
+    return Err(anyhow!("cannot determine user home directory"));
 }
