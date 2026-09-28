@@ -1,3 +1,5 @@
+#![allow(clippy::needless_return)]
+
 use anyhow::{Context as _, Result, anyhow, bail};
 use flags2env::BundledFlags2Env;
 use serde::Deserialize;
