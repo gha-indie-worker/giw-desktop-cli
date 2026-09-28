@@ -1,0 +1,55 @@
+[help]
+url = "https://github.com/gha-indie-worker/giw-desktop-cli#usage"
+columns = ["options", "env", "type", "default", "description"]
+
+[env]
+files = []
+
+[parse]
+command_env = "GIW_DESKTOP_COMMAND"
+positionals_env = "GIW_DESKTOP_POSITIONALS"
+unknown_options_env = "GIW_DESKTOP_UNKNOWN_OPTIONS"
+errors_env = "GIW_DESKTOP_PARSE_ERRORS"
+allow_unknown = false
+
+[flags.daemon-url]
+env = "GIW_DESKTOP_URL"
+aliases = ["daemon-url"]
+type = "string"
+default = "http://127.0.0.1:18440"
+help = "Literal-loopback HTTP origin for giw-desktop-daemon."
+
+[flags.token-file]
+env = "GIW_DESKTOP_TOKEN_FILE"
+aliases = ["token-file"]
+type = "string"
+default = ""
+help = "Path to the local bearer-token file. This is a path only; token values are never accepted on argv."
+
+[commands.status]
+env = "GIW_DESKTOP_COMMAND_STATUS"
+help = "Show daemon and managed-service status."
+
+[commands.reconcile]
+env = "GIW_DESKTOP_COMMAND_RECONCILE"
+help = "Reconcile declared desktop desired state."
+
+[commands.processes]
+env = "GIW_DESKTOP_COMMAND_PROCESSES"
+help = "List declared managed processes."
+
+[commands.process]
+env = "GIW_DESKTOP_COMMAND_PROCESS"
+help = "Control a declared service. Usage: process <start|stop|restart> <service>."
+
+[commands.tunnel]
+env = "GIW_DESKTOP_COMMAND_TUNNEL"
+help = "Control the declared Cloudflare Tunnel. Usage: tunnel <start|stop>."
+
+[commands.keep-awake]
+env = "GIW_DESKTOP_COMMAND_KEEP_AWAKE"
+help = "Control local keep-awake state. Usage: keep-awake <on|off>."
+
+[commands.update]
+env = "GIW_DESKTOP_COMMAND_UPDATE"
+help = "Invoke the operator-declared local update plan."
