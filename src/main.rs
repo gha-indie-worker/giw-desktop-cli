@@ -1,15 +1,19 @@
 #![forbid(unsafe_code)]
 
 use std::{
+    collections::HashMap,
     env, fs,
+    io::Write,
     path::{Path, PathBuf},
     time::Duration,
 };
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand, ValueEnum};
+use flags2env::BundledFlags2Env;
 use reqwest::{Client, Method, StatusCode, Url};
+use serde::Deserialize;
 use serde_json::{Value, json};
+use tempfile::NamedTempFile;
 
 const PROTOCOL_VERSION: u64 = 1;
 const DEFAULT_DAEMON_URL: &str = "http://127.0.0.1:18440";
@@ -18,61 +22,62 @@ const MAX_RESPONSE_BYTES: usize = 1_048_576;
 const MAX_SERVICE_NAME_CHARS: usize = 128;
 const CONNECT_TIMEOUT_SECONDS: u64 = 2;
 const REQUEST_TIMEOUT_SECONDS: u64 = 15;
+const BUNDLED_FLAG_CONTRACT: &str = include_str!("../.cli-flags.toml");
 
-#[derive(Debug, Parser)]
-#[command(
-    name = "giw-desktop",
-    about = "Control the local IndieBuild desktop daemon"
-)]
+#[derive(Debug)]
 struct Args {
-    #[arg(long, default_value = DEFAULT_DAEMON_URL, env = "GIW_DESKTOP_URL")]
     daemon_url: String,
-
-    #[arg(long, env = "GIW_DESKTOP_TOKEN_FILE")]
     token_file: Option<PathBuf>,
-
-    #[command(subcommand)]
     command: Command,
 }
 
-#[derive(Debug, Subcommand)]
+#[derive(Debug)]
 enum Command {
     Status,
     Reconcile,
     Processes,
     Process {
-        #[arg(value_enum)]
         action: ProcessAction,
         name: String,
     },
     Tunnel {
-        #[arg(value_enum)]
         action: TunnelAction,
     },
     KeepAwake {
-        #[arg(value_enum)]
         state: Toggle,
     },
     Update,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy)]
 enum ProcessAction {
     Start,
     Stop,
     Restart,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy)]
 enum TunnelAction {
     Start,
     Stop,
 }
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy)]
 enum Toggle {
     On,
     Off,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct ResolvedFlags {
+    #[serde(rename = "GIW_DESKTOP_URL", default = "default_daemon_url")]
+    daemon_url: String,
+    #[serde(rename = "GIW_DESKTOP_TOKEN_FILE", default)]
+    token_file: String,
+}
+
+fn default_daemon_url() -> String {
+    return DEFAULT_DAEMON_URL.to_string();
 }
 
 fn home_dir() -> Result<PathBuf> {
@@ -127,6 +132,181 @@ fn read_token(path: &Path) -> Result<String> {
         bail!("daemon token at {} is malformed", path.display());
     }
     return Ok(token.to_string());
+}
+
+fn coerce_flag_values(
+    parser: &BundledFlags2Env,
+    dotenv: &HashMap<String, String>,
+    dotenv_overrides: &HashMap<String, String>,
+    provided_flags: &HashMap<String, String>,
+    contract: &str,
+) -> Result<ResolvedFlags> {
+    let mut values = dotenv.clone();
+    values.extend(env::vars());
+    values.extend(dotenv_overrides.clone());
+    values.extend(provided_flags.clone());
+    return parser
+        .coerce(&values, Some(contract))
+        .context("invalid typed GIW desktop flag/environment value");
+}
+
+fn reject_extras(command: &str, extras: &[String]) -> Result<()> {
+    if !extras.is_empty() {
+        bail!("{command} does not accept positional arguments: {extras:?}");
+    }
+    return Ok(());
+}
+
+fn parse_process_action(raw: &str) -> Result<ProcessAction> {
+    return match raw {
+        "start" => Ok(ProcessAction::Start),
+        "stop" => Ok(ProcessAction::Stop),
+        "restart" => Ok(ProcessAction::Restart),
+        _ => bail!("process action must be start, stop, or restart"),
+    };
+}
+
+fn parse_tunnel_action(raw: &str) -> Result<TunnelAction> {
+    return match raw {
+        "start" => Ok(TunnelAction::Start),
+        "stop" => Ok(TunnelAction::Stop),
+        _ => bail!("tunnel action must be start or stop"),
+    };
+}
+
+fn parse_toggle(raw: &str) -> Result<Toggle> {
+    return match raw {
+        "on" => Ok(Toggle::On),
+        "off" => Ok(Toggle::Off),
+        _ => bail!("keep-awake state must be on or off"),
+    };
+}
+
+fn parse_args_from(argv: Vec<String>) -> Result<Args> {
+    let parser = BundledFlags2Env::new();
+    let mut contract_file = NamedTempFile::new().context("failed to stage bundled CLI contract")?;
+    contract_file
+        .write_all(BUNDLED_FLAG_CONTRACT.as_bytes())
+        .context("failed to stage bundled CLI contract")?;
+    let contract = contract_file.path().to_string_lossy().into_owned();
+
+    parser
+        .audit_config(Some(&contract))
+        .context("GIW desktop flag contract audit failed")?;
+    let structured = parser
+        .parse_structured(&argv, Some(&contract))
+        .context("GIW desktop flag parsing failed")?;
+
+    if !structured.unknown_options.is_empty() {
+        bail!(
+            "unknown options were rejected: {:?}",
+            structured.unknown_options
+        );
+    }
+    if !structured.errors.is_empty() {
+        bail!("invalid arguments were rejected: {:?}", structured.errors);
+    }
+
+    let resolved_commands = parser
+        .resolve_commands(&argv, Some(&contract))
+        .context("GIW desktop command resolution failed")?;
+    let values = coerce_flag_values(
+        &parser,
+        &structured.dotenv,
+        &structured.dotenv_overrides,
+        &structured.provided_flags,
+        &contract,
+    )?;
+
+    let path = if resolved_commands.path.is_empty() {
+        let mut fallback = Vec::new();
+        if !structured.command.trim().is_empty() {
+            fallback.push(structured.command.trim().to_owned());
+        }
+        fallback.extend(
+            structured
+                .subcommands
+                .iter()
+                .map(|value| value.trim())
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned),
+        );
+        fallback
+    } else {
+        resolved_commands.path
+    };
+
+    let mut extras = structured.extras;
+    if extras.first().is_some_and(|value| value == "--") {
+        extras.remove(0);
+    }
+
+    let command = match path.as_slice() {
+        [name] if name == "status" => {
+            reject_extras("status", &extras)?;
+            Command::Status
+        }
+        [name] if name == "reconcile" => {
+            reject_extras("reconcile", &extras)?;
+            Command::Reconcile
+        }
+        [name] if name == "processes" => {
+            reject_extras("processes", &extras)?;
+            Command::Processes
+        }
+        [name] if name == "process" => {
+            if extras.len() != 2 {
+                bail!("usage: giw-desktop process <start|stop|restart> <service>");
+            }
+            let action = parse_process_action(&extras[0])?;
+            let name = extras[1].clone();
+            Command::Process { action, name }
+        }
+        [name] if name == "tunnel" => {
+            if extras.len() != 1 {
+                bail!("usage: giw-desktop tunnel <start|stop>");
+            }
+            Command::Tunnel {
+                action: parse_tunnel_action(&extras[0])?,
+            }
+        }
+        [name] if name == "keep-awake" => {
+            if extras.len() != 1 {
+                bail!("usage: giw-desktop keep-awake <on|off>");
+            }
+            Command::KeepAwake {
+                state: parse_toggle(&extras[0])?,
+            }
+        }
+        [name] if name == "update" => {
+            reject_extras("update", &extras)?;
+            Command::Update
+        }
+        [] => {
+            bail!(
+                "missing command: expected status, reconcile, processes, process, tunnel, keep-awake, or update"
+            );
+        }
+        _ => {
+            bail!("unknown command path: {}", path.join(" "));
+        }
+    };
+
+    let token_file = if values.token_file.trim().is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(values.token_file))
+    };
+
+    return Ok(Args {
+        daemon_url: values.daemon_url,
+        token_file,
+        command,
+    });
+}
+
+fn parse_args() -> Result<Args> {
+    return parse_args_from(env::args().collect());
 }
 
 fn parse_daemon_base(raw: &str) -> Result<Url> {
@@ -298,7 +478,7 @@ async fn run(args: Args) -> Result<Value> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let value = run(Args::parse()).await?;
+    let value = run(parse_args()?).await?;
     println!("{}", serde_json::to_string_pretty(&value)?);
     return Ok(());
 }
@@ -306,6 +486,30 @@ async fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn canonical_flag_contract_parses_status() {
+        let args = parse_args_from(vec!["giw-desktop".to_string(), "status".to_string()])
+            .expect("status should parse through flags2env");
+        assert!(matches!(args.command, Command::Status));
+        assert_eq!(args.daemon_url, DEFAULT_DAEMON_URL);
+    }
+
+    #[test]
+    fn canonical_flag_contract_rejects_unknown_options() {
+        let result = parse_args_from(vec![
+            "giw-desktop".to_string(),
+            "--not-a-real-option".to_string(),
+            "status".to_string(),
+        ]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn token_value_is_not_a_public_flag() {
+        assert!(!BUNDLED_FLAG_CONTRACT.contains("[flags.token]"));
+        assert!(!BUNDLED_FLAG_CONTRACT.contains("GIW_DESKTOP_TOKEN ="));
+    }
 
     #[test]
     fn daemon_url_requires_literal_loopback_origin() {
