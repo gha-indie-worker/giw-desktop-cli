@@ -27,6 +27,25 @@ struct CliConfig {
 
 #[tokio::main]
 async fn main() {
+    if ores_clis_core::self_update::self_update_requested() {
+        ores_clis_core::self_update::run_self_update_cli(
+            ores_clis_core::self_update::SelfUpdateConfig::new(
+                "gha-indie-worker",
+                "giw-desktop-cli",
+                "giw-desktop",
+                env!("CARGO_PKG_VERSION"),
+            ),
+        );
+    }
+
+    if env::args()
+        .nth(1)
+        .is_some_and(|argument| matches!(argument.as_str(), "--version" | "-V"))
+    {
+        println!("giw-desktop {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
+
     let code = match run().await {
         Ok(()) => 0,
         Err(error) => {
