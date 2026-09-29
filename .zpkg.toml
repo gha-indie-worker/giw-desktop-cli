@@ -1,0 +1,35 @@
+[package]
+org = "gha-indie-worker"
+name = "giw-desktop-cli"
+version = "0.1.0"
+description = "IndieBuild desktop CLI backed by the local daemon"
+license = "MIT"
+language = "rust"
+keywords = ["cli", "desktop", "indiebuild", "rust", "global-tool"]
+
+[package.repository]
+vcs = "git"
+url = "https://github.com/gha-indie-worker/giw-desktop-cli"
+
+[dependencies]
+"oresoftware/ores-clis-core" = "^0.1.0"
+
+[build]
+command = "cargo build --release --locked --bin giw-desktop"
+outputs = ["target/release/giw-desktop"]
+
+[bin]
+giw-desktop = "target/release/giw-desktop"
+
+[install]
+adapter = "none"
+dir = ".vendor/.zed"
+
+[publish]
+include_readme = true
+tag_format = "v{version}"
+smoke_test = "test -x \"$ZED_PKG_TEST_TARGET/target/release/giw-desktop\" && \"$ZED_PKG_TEST_TARGET/target/release/giw-desktop\" --help >/dev/null"
+exclude = [".env", ".env.*", ".direnv/**", ".zed/**", ".zed-pack/**", ".vendor/.zed/**", "target/**", "tmp/**", "**/*.log", ".DS_Store"]
+
+[scripts]
+test = "cargo test --all-targets --locked"
