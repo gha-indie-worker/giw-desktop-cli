@@ -1,0 +1,50 @@
+name: refresh self-update lockfile
+
+on:
+  push:
+    branches:
+      - feat/self-update-command
+    paths:
+      - '.github/workflows/refresh-self-update-lock.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/self-update-command
+          persist-credentials: true
+
+      - name: Assert expected source feature commit is ancestor
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git merge-base --is-ancestor 394ba89d639f9137501df8e922c82b539c4b4eb6 HEAD
+
+      - name: Install Rust 1.90
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          rustup toolchain install 1.90.0 --profile minimal
+          rustup default 1.90.0
+
+      - name: Regenerate and commit Cargo.lock
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cargo generate-lockfile
+          cargo metadata --locked --format-version 1 >/dev/null
+          test "$(sha256sum Cargo.lock | awk '{print $1}')" = '5f7c6e452225a123419e415d863e0c5d26eb2ac0c4ffa66c4393f846ee862d77'
+          git add Cargo.lock
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: refresh self-update Cargo.lock'
+          git push origin HEAD:feat/self-update-command
