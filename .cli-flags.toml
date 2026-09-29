@@ -12,6 +12,9 @@ ignore = ["GIW_DESKTOP_TOKEN_FILE"]
 [commands.status]
 help = "Show IndieBuild local status including the delegated Scintilla runtime."
 
+[commands.self-update]
+help = "Update giw-desktop using the shared ORES self-update path."
+
 [commands.dispatch]
 help = "Dispatch one local IndieBuild job through the IndieBuild daemon into Scintilla."
 
@@ -26,7 +29,7 @@ help = "JSON job payload."
 env = "GIW_DESKTOP_DAEMON_URL"
 aliases = ["url"]
 type = "string"
-default = "http://127.0.0.1:8756"
+default = "http://127.0.0.1:8770"
 help = "Loopback URL of giw-desktop-daemon."
 
 [flags.timeout]
