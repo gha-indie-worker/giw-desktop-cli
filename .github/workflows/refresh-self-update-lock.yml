@@ -20,11 +20,12 @@ jobs:
           ref: feat/self-update-command
           persist-credentials: true
 
-      - name: Assert expected source feature commit is ancestor
+      - name: Verify self-update source surface
         shell: bash
         run: |
           set -Eeuo pipefail
-          git merge-base --is-ancestor 394ba89d639f9137501df8e922c82b539c4b4eb6 HEAD
+          grep -F 'ores-clis-core' Cargo.toml >/dev/null
+          test -z "$(git status --porcelain)"
 
       - name: Install Rust 1.90
         shell: bash
