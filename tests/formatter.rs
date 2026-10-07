@@ -88,7 +88,6 @@ fnc demo() -> int {
     assert_eq!(format_source(src).unwrap(), expected);
 }
 
-
 #[test]
 fn multiline_expression_lambda_indents_until_its_required_semicolon() {
     let src = r#"fnc demo() -> void {
@@ -118,10 +117,9 @@ return;
     assert_eq!(format_source(src).unwrap(), expected);
     assert!(is_formatted(expected).unwrap());
 
-    let err = format_source(
-        "fnc bad() -> void {\nval Fnc<int, int> f = |value| ->\nvalue * 2\n}\n",
-    )
-    .unwrap_err();
+    let err =
+        format_source("fnc bad() -> void {\nval Fnc<int, int> f = |value| ->\nvalue * 2\n}\n")
+            .unwrap_err();
     assert!(err.message().contains("explicit ';'"));
 }
 
@@ -234,7 +232,6 @@ end
 "#;
     assert_eq!(format_source(src).unwrap(), expected);
 }
-
 
 #[test]
 fn module_owned_class_is_indented_as_a_module_member() {
