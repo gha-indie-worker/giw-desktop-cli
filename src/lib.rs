@@ -134,6 +134,7 @@ pub fn format_source(source: &str) -> Result<String, FormatError> {
     // While a body spans lines, indent it one continuation level without
     // changing the structural brace/keyword nesting used by the language.
     let mut lambda_expr_continuation: Option<usize> = None;
+    let mut pending_assignment_continuation = false;
 
     for (line_index, raw_line) in normalized.lines().enumerate() {
         let line_no = line_index + 1;
@@ -234,7 +235,11 @@ pub fn format_source(source: &str) -> Result<String, FormatError> {
         }
 
         let brace_depth_before_line = brace_stack.len();
-        let current_indent = indent + usize::from(lambda_expr_continuation.is_some());
+        let assignment_lambda_continuation =
+            pending_assignment_continuation && starts_pipe_lambda_expression(structural);
+        let current_indent = indent
+            + usize::from(lambda_expr_continuation.is_some())
+            + usize::from(assignment_lambda_continuation);
         let annotation_line = structural.starts_with('@');
         let desired_blanks = if out.is_empty() || is_closer_line(structural) {
             0
@@ -340,6 +345,8 @@ pub fn format_source(source: &str) -> Result<String, FormatError> {
         } else if opens_multiline_expression_body_pipe_lambda(structural) {
             lambda_expr_continuation = Some(brace_depth_before_line);
         }
+
+        pending_assignment_continuation = structural.trim_end().ends_with('=');
     }
 
     if lambda_expr_continuation.is_some() {
@@ -1229,6 +1236,13 @@ fn canonicalize_generator_sugar_line(line: &str, initial: LexState) -> String {
     }
 
     line.to_string()
+}
+
+fn starts_pipe_lambda_expression(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    starts_word(trimmed, "nlex")
+        && trimmed["nlex".len()..].trim_start().starts_with('|')
+        || trimmed.starts_with('|')
 }
 
 fn opens_multiline_expression_body_pipe_lambda(line: &str) -> bool {

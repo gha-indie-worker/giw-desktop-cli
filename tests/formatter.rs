@@ -126,6 +126,26 @@ return;
 }
 
 #[test]
+fn structured_expression_lambda_after_assignment_gets_continuation_indent() {
+    let src = r#"fnc demo() -> void {
+val Fnc<int, {value: int}> wrap =
+|value| -> obj{value: value * 2};
+val wrapped = wrap(4);
+return;
+}
+"#;
+    let expected = r#"fnc demo() -> void {
+  val Fnc<int, {value: int}> wrap =
+    |value| -> obj{value: value * 2};
+  val wrapped = wrap(4);
+  return;
+}
+"#;
+    assert_eq!(format_source(src).unwrap(), expected);
+    assert!(is_formatted(expected).unwrap());
+}
+
+#[test]
 fn canonicalizes_current_generator_sugar_and_preserves_yield_delegation() {
     let src = r#"fnc gen* sync_values(): Iterator<int> {
 rt yield;
@@ -197,18 +217,18 @@ fi
 }
 
 #[test]
-fn preserves_explicit_mutable_receivers_and_native_collection_members() {
+fn preserves_explicit_receivers_and_native_collection_members() {
     let src = r#"define class Cursor as
-pub next(mut self)() -> int {
+pub next(self &mut Cursor)() -> int {
 self.index = self.index + 1;
-return self.items.length;
+return self.items.size;
 }
 end
 "#;
     let expected = r#"define class Cursor as
-  pub next(mut self)() -> int {
+  pub next(self &mut Cursor)() -> int {
     self.index = self.index + 1;
-    return self.items.length;
+    return self.items.size;
   }
 end
 "#;
