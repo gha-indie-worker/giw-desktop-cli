@@ -162,19 +162,18 @@ fnc math(int gen, int value) -> int {
 return gen * value;
 }
 "#;
-    let expected = r#"generator fnc sync_values(): Iterator<int> {
+    let expected = r#"generator fnc sync_values() -> Iterator<int> {
   rt cooperate;
   yield* inner();
   return;
 }
 
 
-async generator fnc async_values(): AsyncIterator<int> {
+async generator fnc async_values() -> AsyncIterator<int> {
   rt cooperate();
   yield* sync_values();
   return;
 }
-
 
 // gen* fnc fake() should stay a comment
 fnc math(int gen, int value) -> int {
