@@ -1,24 +1,27 @@
 [package]
-name = "giw-desktop-cli"
+name = "oreslang-format"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.90"
+rust-version = "1.85"
+description = "The canonical formatter for Oreslang source files"
 license = "MIT"
-description = "IndieBuild desktop CLI backed by the local daemon"
-repository = "https://github.com/gha-indie-worker/giw-desktop-cli"
+repository = "https://github.com/ores-truffle-oreslang/oreslang-format"
+keywords = ["oreslang", "formatter", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[lib]
+name = "oreslang_format"
+path = "src/lib.rs"
 
 [[bin]]
-name = "giw-desktop"
-path = "src/main.rs"
+name = "oresfmt"
+path = "src/bin/oresfmt.rs"
 
-[lints.rust]
-unsafe_code = "deny"
+[[bin]]
+name = "oreslang-format"
+path = "src/bin/oreslang-format.rs"
 
-[dependencies]
-anyhow = "1"
-flags2env = { git = "https://github.com/flags-2-env/flags-2-env.git", rev = "8c8465561075a8d7ebb58074b3a8087138e97d8f" }
-ores-clis-core = { git = "https://github.com/ORESoftware/ores-clis-core.git", rev = "7c9acb2325796ecfcbbc8f1c90c6fec3ab0a5377" }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
