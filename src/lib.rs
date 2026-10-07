@@ -1240,8 +1240,7 @@ fn canonicalize_generator_sugar_line(line: &str, initial: LexState) -> String {
 
 fn starts_pipe_lambda_expression(line: &str) -> bool {
     let trimmed = line.trim_start();
-    starts_word(trimmed, "nlex")
-        && trimmed["nlex".len()..].trim_start().starts_with('|')
+    starts_word(trimmed, "nlex") && trimmed["nlex".len()..].trim_start().starts_with('|')
         || trimmed.starts_with('|')
 }
 
